@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Build and coverage output
+build/
+dist/
+.coverage
+.pytest_cache/
+
+# Local project knowledge generated when developing this repository
+knowledge/
+
+# Local agent and editor files
+.env
+.env.*
+.vscode/

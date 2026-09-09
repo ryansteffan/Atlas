@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "project-knowledge-system"
+version = "0.1.0"
+description = "A local, agent-oriented project knowledge system"
+requires-python = ">=3.10"
+
+[project.scripts]
+knowledge = "knowledge_system.cli:main"
+knowledge-mcp = "knowledge_system.mcp:main"
+
+[tool.setuptools.packages.find]
+include = ["knowledge_system*"]
