@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from knowledge_system.cli import main
@@ -67,11 +69,28 @@ class KnowledgeProjectTests(unittest.TestCase):
             [sys.executable, "-c", "print('{\"status\":\"pass\",\"issues\":[]}')"],
         )
         adapter = LocalAgentAdapter(self.project)
-        self.assertEqual(adapter.command()[:1], [sys.executable])
         self.project.init()
         document = self.root / "knowledge" / "docs" / "src" / "app.py.docs.md"
-        verification = adapter.verify(document, "doc", document.read_text(encoding="utf-8"))
-        self.assertEqual(verification["status"], "pass")
+        with patch.object(KnowledgeProject, "user_config_path", return_value=self.root / "user.json"):
+            self.project.set_agent_authorization(True, command=sys.executable)
+            self.assertEqual(adapter.command()[:1], [sys.executable])
+
+    def test_agent_execution_is_disabled_by_default(self) -> None:
+        self.project.set_config("agent.provider", "codex")
+        with patch.object(KnowledgeProject, "user_config_path", return_value=self.root / "user.json"):
+            self.assertIsNone(LocalAgentAdapter(self.project).command())
+
+    def test_spec_paths_cannot_escape_knowledge_directory(self) -> None:
+        from knowledge_system.cli import main
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            outside = root.parent / "outside.spec.md"
+            outside.write_text("secret", encoding="utf-8")
+            self.assertEqual(
+            main(["spec", "read", str(outside), "--root", str(root), "--json"]),
+            1,
+            )
 
 
 class InterfaceTests(unittest.TestCase):
@@ -116,6 +135,30 @@ class InterfaceTests(unittest.TestCase):
                 (root / ".opencode" / "skills" / "project-knowledge" / "SKILL.md").is_file()
             )
 
+    def test_setup_can_enable_agent_without_environment_variables(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            user_config = root / "user.json"
+            with patch.object(KnowledgeProject, "user_config_path", return_value=user_config):
+                self.assertEqual(
+                    main(
+                        [
+                            "setup",
+                            "--root",
+                            str(root),
+                            "--provider",
+                            "claude",
+                            "--enable-agent",
+                            "--json",
+                        ]
+                    ),
+                    0,
+                )
+                self.assertTrue(
+                    json.loads(user_config.read_text(encoding="utf-8"))["projects"]
+                )
+                self.assertTrue(KnowledgeProject(root).get_agent_authorization()["enabled"])
+
     def test_skill_installation_does_not_overwrite(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -156,6 +199,44 @@ class InterfaceTests(unittest.TestCase):
                 root,
             )
             self.assertEqual(json.loads(value["result"]["content"][0]["text"])["created"], 1)
+
+    def test_mcp_read_rejects_workspace_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / ".env").write_text("SECRET=value", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                handle(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 4,
+                        "method": "tools/call",
+                        "params": {"name": "knowledge_read", "arguments": {"path": ".env"}},
+                    },
+                    root,
+                )
+
+    def test_mcp_read_rejects_symlinked_knowledge_files(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            knowledge = root / "knowledge"
+            knowledge.mkdir()
+            secret = root / "secret.txt"
+            secret.write_text("SECRET=value", encoding="utf-8")
+            link = knowledge / "secret.md"
+            try:
+                link.symlink_to(secret)
+            except (OSError, NotImplementedError):
+                self.skipTest("Symlinks are unavailable in this environment")
+            with self.assertRaises(ValueError):
+                handle(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": 5,
+                        "method": "tools/call",
+                        "params": {"name": "knowledge_read", "arguments": {"path": "knowledge/secret.md"}},
+                    },
+                    root,
+                )
 
 
 if __name__ == "__main__":

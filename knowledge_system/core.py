@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import fnmatch
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -244,12 +245,13 @@ class LocalAgentAdapter:
         self.config = project.get_config()
 
     def command(self) -> list[str] | None:
-        configured = self.config.get("agent.command")
+        authorization = self.project.get_agent_authorization()
+        if not authorization.get("enabled"):
+            return None
+        configured = authorization.get("command")
         if isinstance(configured, str):
             return shlex.split(configured, posix=False)
-        if isinstance(configured, list) and all(isinstance(item, str) for item in configured):
-            return configured
-        provider = self.config.get("agent.provider", "auto")
+        provider = authorization.get("provider", self.config.get("agent.provider", "auto"))
         if provider == "auto":
             for name in DEFAULT_AGENT_COMMANDS:
                 if shutil.which(DEFAULT_AGENT_COMMANDS[name][0]):
@@ -375,6 +377,14 @@ class KnowledgeProject:
 
     def rel(self, path: Path) -> str:
         return path.resolve().relative_to(self.root).as_posix()
+
+    def ensure_inside(self, path: Path, base: Path) -> Path:
+        resolved = path.resolve()
+        try:
+            resolved.relative_to(base.resolve())
+        except ValueError as error:
+            raise ValueError(f"Path must be inside {self.rel(base)}") from error
+        return resolved
 
     def ignored(self, path: Path) -> bool:
         try:
@@ -642,6 +652,42 @@ class KnowledgeProject:
 
     def config_path(self) -> Path:
         return self.knowledge / "config.json"
+
+    @staticmethod
+    def user_config_path() -> Path:
+        if os.environ.get("LOCALAPPDATA"):
+            return Path(os.environ["LOCALAPPDATA"]) / "project-knowledge" / "config.json"
+        return Path.home() / ".config" / "project-knowledge" / "config.json"
+
+    def get_agent_authorization(self) -> dict[str, Any]:
+        path = self.user_config_path()
+        if not path.exists():
+            return {}
+        value = json.loads(path.read_text(encoding="utf-8"))
+        projects = value.get("projects", {}) if isinstance(value, dict) else {}
+        authorization = projects.get(str(self.root), {}) if isinstance(projects, dict) else {}
+        return authorization if isinstance(authorization, dict) else {}
+
+    def set_agent_authorization(
+        self, enabled: bool, provider: str = "auto", command: str | None = None
+    ) -> dict[str, Any]:
+        path = self.user_config_path()
+        value: dict[str, Any] = {}
+        if path.exists():
+            loaded = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(loaded, dict):
+                raise ValueError("User agent config must contain a JSON object")
+            value = loaded
+        projects = value.setdefault("projects", {})
+        if not isinstance(projects, dict):
+            raise ValueError("User agent config projects must contain a JSON object")
+        authorization: dict[str, Any] = {"enabled": enabled, "provider": provider}
+        if command:
+            authorization["command"] = command
+        projects[str(self.root)] = authorization
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+        return authorization
 
     def get_config(self) -> dict[str, Any]:
         path = self.config_path()

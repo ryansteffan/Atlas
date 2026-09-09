@@ -26,6 +26,27 @@ This safely:
 4. installs the skill into the selected agent's project instructions;
 5. leaves existing files untouched and fails instead of overwriting them.
 
+To enable semantic verification without environment variables, explicitly opt in
+during setup:
+
+```powershell
+knowledge setup --provider claude --enable-agent --mcp-client vscode --skill copilot
+```
+
+This stores approval in a user-level configuration outside the repository. A
+repository cannot enable agent execution by committing files. For a custom local
+tool:
+
+```powershell
+knowledge setup --enable-agent --agent-command "my-agent --json"
+```
+
+Disable it later with:
+
+```powershell
+knowledge setup --disable-agent
+```
+
 Use `--mcp-client claude` or `--mcp-client cursor` for those clients. Use
 `--mcp-client none` when configuring MCP manually or through another client.
 Use `--skill all` to install the skill for all supported agents:
@@ -78,15 +99,17 @@ delegate semantic comparison to any local coding agent CLI. Configure one explic
 
 ```powershell
 knowledge config set agent.provider opencode
-# Or provide an arbitrary command; the prompt is sent on stdin:
-knowledge config set agent.command 'my-agent --json'
 knowledge config set agent.timeout 180
 ```
 
 Supported provider presets are `opencode`, `claude`, `codex`, `github-copilot`, and
 `auto`. The adapter asks the tool to return a JSON verification result. If the tool is
 unavailable, verification remains deterministic and reports a warning rather than
-silently claiming semantic verification.
+silently claiming semantic verification. Agent execution is disabled by default for
+safety because repository configuration and content are untrusted.
+
+The MCP read tool is restricted to files under `knowledge/`; it cannot read arbitrary
+workspace files such as `.env`.
 
 ## MCP
 

@@ -49,9 +49,13 @@ def handle(message: dict[str, Any], root: Path) -> dict[str, Any] | None:
         elif name == "knowledge_config":
             value = project.get_config()
         elif name == "knowledge_read":
-            path = (root / arguments["path"]).resolve()
-            if root not in path.parents and path != root:
-                raise ValueError("Path must be inside the project root")
+            requested = root / arguments["path"]
+            if requested.is_symlink() or any(parent.is_symlink() for parent in requested.parents):
+                raise ValueError("Symlink paths are not allowed")
+            path = requested.resolve()
+            knowledge_root = (root / "knowledge").resolve()
+            if knowledge_root not in path.parents or path.is_symlink():
+                raise ValueError("Path must be a non-symlink file inside knowledge/")
             value = path.read_text(encoding="utf-8")
         else:
             return response(request_id, error={"code": -32601, "message": f"Unknown tool: {name}"})

@@ -28,12 +28,15 @@ def path_argument(project: KnowledgeProject, value: str, kind: str) -> Path:
 def spec_path(project: KnowledgeProject, value: str) -> Path:
     candidate = Path(value)
     if candidate.parts and candidate.parts[0] == "knowledge":
-        return (project.root / candidate).resolve()
-    return path_argument(project, value, "spec")
+        path = (project.root / candidate).resolve()
+    else:
+        path = path_argument(project, value, "spec")
+    return project.ensure_inside(path, project.specs)
 
 
 def doc_path(project: KnowledgeProject, value: str) -> Path:
     resource = path_argument(project, value, "doc")
+    project.ensure_inside(resource, project.root)
     return project.documentation_path(resource)
 
 
@@ -59,11 +62,20 @@ def operation(args: argparse.Namespace) -> tuple[Any, int]:
         initialized = project.init()
         if args.provider:
             project.set_config("agent.provider", args.provider)
+        if args.enable_agent or args.agent_command:
+            project.set_agent_authorization(
+                True,
+                args.provider or project.get_config().get("agent.provider", "auto"),
+                args.agent_command,
+            )
+        elif args.disable_agent:
+            project.set_agent_authorization(False)
         mcp_path = project.write_mcp_config(args.mcp_client)
         skill_paths = project.install_skill(args.skill)
         return {
             "initialized": initialized,
             "agent_provider": args.provider,
+            "agent_enabled": project.get_agent_authorization().get("enabled", False),
             "mcp_config": project.rel(mcp_path) if mcp_path else None,
             "skills": [project.rel(path) for path in skill_paths],
         }, 0
@@ -167,6 +179,20 @@ def parser() -> argparse.ArgumentParser:
         choices=("none", "copilot", "claude", "codex", "opencode", "all"),
         default="none",
         help="Install project-local agent instructions without overwriting existing files",
+    )
+    setup.add_argument(
+        "--enable-agent",
+        action="store_true",
+        help="Explicitly allow the selected local agent for this project",
+    )
+    setup.add_argument(
+        "--disable-agent",
+        action="store_true",
+        help="Disable local-agent semantic verification for this project",
+    )
+    setup.add_argument(
+        "--agent-command",
+        help="Optional custom agent command to save in user-level configuration",
     )
     search = sub.add_parser("search")
     search.add_argument("--json", action="store_true", dest="as_json", default=argparse.SUPPRESS)
