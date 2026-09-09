@@ -125,6 +125,19 @@ class InterfaceTests(unittest.TestCase):
             with self.assertRaises(FileExistsError):
                 KnowledgeProject(root).install_skill("claude")
 
+    def test_installed_skill_contains_strong_workflow_metadata(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            KnowledgeProject(root).install_skill("codex")
+            content = (
+                root / ".agents" / "skills" / "project-knowledge" / "SKILL.md"
+            ).read_text(encoding="utf-8")
+            self.assertIn("name: project-knowledge", content)
+            self.assertIn("## Authority", content)
+            self.assertIn("## Core development loop", content)
+            self.assertIn("## Completion criteria", content)
+            self.assertIn("knowledge spec verify", content)
+
     def test_mcp_lists_tools_and_verifies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

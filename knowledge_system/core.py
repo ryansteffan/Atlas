@@ -105,19 +105,114 @@ DOC_SECTIONS = (
     "## Notes",
 )
 
-SKILL_CONTENT = """# Project Knowledge System
+SKILL_CONTENT = """---
+name: project-knowledge
+description: Preserve development intent and implementation knowledge between agents and development sessions.
+---
 
-Use the `knowledge` CLI to preserve project intent and implementation knowledge.
+# Project Knowledge System
 
-Before significant changes, search relevant knowledge, read applicable specifications
-and documentation, and ask the user when material intent is ambiguous.
+## Purpose
 
-During implementation, follow applicable specifications and do not rewrite them to
-accommodate incorrect code.
+Use the persistent knowledge system to preserve development intent and implementation knowledge between agents and development sessions.
 
-After implementation, run project tests, run `knowledge verify`, update affected
-documentation, and verify it. Verification is read-only; fix implementation or
-knowledge explicitly.
+The three important concepts are:
+
+- **Specifications** describe intended behavior and are authoritative unless the user changes that intent.
+- **Documentation** describes what the implementation actually does and must remain consistent with it.
+- **Verification** checks implementation against specifications, documentation against implementation, and knowledge structure completeness.
+
+Knowledge is not trustworthy merely because an agent generated it. Verify it against the project.
+
+## Authority
+
+Use this authority order:
+
+```text
+User intent → Specifications → Implementation → Documentation
+```
+
+The user is the final authority. If a request conflicts with a specification, ask the user rather than silently changing the specification. If implementation conflicts with a clear specification, correct the implementation. If documentation conflicts with implementation, update the documentation. Ask when intended behavior is materially ambiguous.
+
+## Core development loop
+
+For significant changes:
+
+```text
+Search → Understand → Plan → Specify → Implement → Test → Verify → Document → Verify
+```
+
+Use judgment for trivial changes; do not turn the process into needless ceremony.
+
+## Before significant changes
+
+1. Search relevant knowledge with `knowledge search "<query>"`.
+2. Read applicable specifications and implementation documentation.
+3. Determine whether the change implements existing intent or introduces material requirements.
+4. Create or update a specification before implementation when intent changes.
+5. Ask the user when requirements cannot be determined confidently from the request, knowledge, or implementation.
+
+Do not begin modifying code without checking relevant knowledge, and do not create specifications merely to document implementation details.
+
+## During implementation
+
+Implement according to applicable specifications. If requirements are ambiguous or contradictory, stop and resolve them with the user. Do not modify specifications merely to make incorrect implementation appear compliant.
+
+## After implementation
+
+1. Run the project's tests and validation. The knowledge system does not replace normal testing.
+2. Verify affected specifications:
+   `knowledge spec verify knowledge/spec/<name>.spec.md`
+3. If specification verification fails, inspect the failure, fix the implementation when it violates intent, and verify again.
+4. Update documentation for every affected implementation file. Documentation describes the resulting implementation.
+5. Verify affected documentation:
+   `knowledge doc verify <project-path>`
+6. If documentation verification fails, inspect the implementation, update documentation, and verify again.
+
+Do not consider a change complete merely because it compiles.
+
+## Completion criteria
+
+A significant change is complete only when:
+
+- implementation satisfies applicable specifications;
+- tests pass or known failures are explicitly addressed;
+- affected files have documentation;
+- documentation accurately describes the resulting implementation;
+- relevant knowledge verification passes;
+- no material ambiguity remains unresolved.
+
+## Maintaining knowledge
+
+When changing a file:
+
+```text
+check documentation → change implementation → update documentation → verify documentation
+```
+
+When changing behavior:
+
+```text
+check specifications → determine whether intent changes → update specification if needed → implement → verify
+```
+
+Do not rewrite unrelated knowledge. Keep it focused on helping another agent understand and modify the project.
+
+## Knowledge MCP
+
+Prefer the knowledge MCP when available. Use it to search knowledge, read and update specifications and documentation, create missing knowledge, verify changes, and inspect project health. The MCP is an interface; the underlying knowledge files remain the persistent source of truth.
+
+## When to use specifications
+
+Create or update specifications for new subsystems, API contracts, important business behavior, architectural constraints, externally visible behavior, or non-trivial acceptance criteria. Do not create one for every small code change.
+
+## When to ask the user
+
+Ask when a specification conflicts with the request, requirements are materially ambiguous, interpretations would produce meaningfully different implementations, an architectural decision cannot reasonably be inferred, or verification reveals an unresolvable conflict. Do not ask when the answer can reasonably be determined from the project.
+
+## General principle
+
+The purpose of this system is not to eliminate the need to understand the codebase. It preserves understanding established by previous agents and developers. Before changing the project, learn from accumulated knowledge. After changing it, leave the knowledge accurate for the next agent.
 """
 
 DEFAULT_AGENT_COMMANDS = {
