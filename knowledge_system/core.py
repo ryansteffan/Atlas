@@ -105,6 +105,21 @@ DOC_SECTIONS = (
     "## Notes",
 )
 
+SKILL_CONTENT = """# Project Knowledge System
+
+Use the `knowledge` CLI to preserve project intent and implementation knowledge.
+
+Before significant changes, search relevant knowledge, read applicable specifications
+and documentation, and ask the user when material intent is ambiguous.
+
+During implementation, follow applicable specifications and do not rewrite them to
+accommodate incorrect code.
+
+After implementation, run project tests, run `knowledge verify`, update affected
+documentation, and verify it. Verification is read-only; fix implementation or
+knowledge explicitly.
+"""
+
 DEFAULT_AGENT_COMMANDS = {
     "opencode": ["opencode", "run", "--format", "json"],
     "claude": ["claude", "-p"],
@@ -555,6 +570,63 @@ class KnowledgeProject:
         self.knowledge.mkdir(parents=True, exist_ok=True)
         self.config_path().write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
         return config
+
+    def write_mcp_config(self, client: str) -> Path | None:
+        configs: dict[str, tuple[Path, dict[str, Any]]] = {
+            "claude": (
+                self.root / ".mcp.json",
+                {"mcpServers": {"project-knowledge": {"command": "knowledge-mcp"}}},
+            ),
+            "cursor": (
+                self.root / ".cursor" / "mcp.json",
+                {"mcpServers": {"project-knowledge": {"command": "knowledge-mcp"}}},
+            ),
+            "vscode": (
+                self.root / ".vscode" / "mcp.json",
+                {"servers": {"project-knowledge": {"type": "stdio", "command": "knowledge-mcp"}}},
+            ),
+        }
+        if client == "none":
+            return None
+        if client not in configs:
+            raise ValueError(f"Unsupported MCP client: {client}")
+        path, value = configs[client]
+        if path.exists():
+            raise FileExistsError(f"MCP configuration already exists: {path}")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+        return path
+
+    def install_skill(self, provider: str) -> list[Path]:
+        destinations = {
+            "copilot": [self.root / ".github" / "skills" / "project-knowledge" / "SKILL.md"],
+            "claude": [self.root / ".claude" / "skills" / "project-knowledge" / "SKILL.md"],
+            "codex": [self.root / ".agents" / "skills" / "project-knowledge" / "SKILL.md"],
+            "opencode": [self.root / ".opencode" / "skills" / "project-knowledge" / "SKILL.md"],
+            "all": [
+                self.root / ".github" / "skills" / "project-knowledge" / "SKILL.md",
+                self.root / ".claude" / "skills" / "project-knowledge" / "SKILL.md",
+                self.root / ".agents" / "skills" / "project-knowledge" / "SKILL.md",
+                self.root / ".opencode" / "skills" / "project-knowledge" / "SKILL.md",
+            ],
+        }
+        if provider == "none":
+            return []
+        if provider not in destinations:
+            raise ValueError(f"Unsupported skill provider: {provider}")
+        existing = [path for path in destinations[provider] if path.exists()]
+        if existing:
+            formatted = ", ".join(self.rel(path) for path in existing)
+            raise FileExistsError(f"Skill instruction file already exists: {formatted}")
+        for path in destinations[provider]:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(
+                (self.root / "skills" / "project-knowledge" / "SKILL.md").read_text(encoding="utf-8")
+                if (self.root / "skills" / "project-knowledge" / "SKILL.md").is_file()
+                else SKILL_CONTENT,
+                encoding="utf-8",
+            )
+        return destinations[provider]
 
 
 def read_content(content: str | None, content_file: str | None) -> str:

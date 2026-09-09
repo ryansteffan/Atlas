@@ -81,6 +81,50 @@ class InterfaceTests(unittest.TestCase):
             self.assertEqual(main(["init", "--root", str(root), "--json"]), 0)
             self.assertTrue((root / "knowledge" / "root.info.md").is_file())
 
+    def test_setup_initializes_and_generates_mcp_config(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(
+                main(
+                    [
+                        "setup",
+                        "--root",
+                        str(root),
+                        "--provider",
+                        "auto",
+                        "--mcp-client",
+                        "vscode",
+                        "--skill",
+                        "all",
+                        "--json",
+                    ]
+                ),
+                0,
+            )
+            self.assertTrue((root / "knowledge" / "root.info.md").is_file())
+            self.assertTrue((root / ".vscode" / "mcp.json").is_file())
+            self.assertTrue(
+                (root / ".github" / "skills" / "project-knowledge" / "SKILL.md").is_file()
+            )
+            self.assertTrue(
+                (root / ".claude" / "skills" / "project-knowledge" / "SKILL.md").is_file()
+            )
+            self.assertTrue(
+                (root / ".agents" / "skills" / "project-knowledge" / "SKILL.md").is_file()
+            )
+            self.assertTrue(
+                (root / ".opencode" / "skills" / "project-knowledge" / "SKILL.md").is_file()
+            )
+
+    def test_skill_installation_does_not_overwrite(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            skill = root / ".claude" / "skills" / "project-knowledge" / "SKILL.md"
+            skill.parent.mkdir(parents=True)
+            skill.write_text("user skill", encoding="utf-8")
+            with self.assertRaises(FileExistsError):
+                KnowledgeProject(root).install_skill("claude")
+
     def test_mcp_lists_tools_and_verifies(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

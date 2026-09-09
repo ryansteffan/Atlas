@@ -10,7 +10,39 @@ python -m pip install -e .
 knowledge help
 ```
 
-## Use in a project
+## Fast setup
+
+From the root of the project you want to develop:
+
+```powershell
+knowledge setup --provider auto --mcp-client vscode --skill copilot
+```
+
+This safely:
+
+1. creates the `knowledge/` structure and initial documentation;
+2. configures automatic local-agent detection;
+3. generates `.vscode/mcp.json` for the local MCP server;
+4. installs the skill into the selected agent's project instructions;
+5. leaves existing files untouched and fails instead of overwriting them.
+
+Use `--mcp-client claude` or `--mcp-client cursor` for those clients. Use
+`--mcp-client none` when configuring MCP manually or through another client.
+Use `--skill all` to install the skill for all supported agents:
+
+| Agent | Project-local destination |
+| --- | --- |
+| GitHub Copilot | `.github/skills/project-knowledge/SKILL.md` |
+| Claude Code | `.claude/skills/project-knowledge/SKILL.md` |
+| Codex | `.agents/skills/project-knowledge/SKILL.md` |
+| OpenCode | `.opencode/skills/project-knowledge/SKILL.md` |
+
+These are real Agent Skills: each is a directory containing a `SKILL.md` with
+portable `name` and `description` metadata. The command refuses to overwrite any
+existing skill. Use `--skill none` when skills are managed elsewhere. The source
+skill remains available at `skills/project-knowledge/SKILL.md`.
+
+## Manual project use
 
 Run from the project root:
 

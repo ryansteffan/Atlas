@@ -55,6 +55,18 @@ def operation(args: argparse.Namespace) -> tuple[Any, int]:
     command = args.command
     if command == "init":
         return project.init(), 0
+    if command == "setup":
+        initialized = project.init()
+        if args.provider:
+            project.set_config("agent.provider", args.provider)
+        mcp_path = project.write_mcp_config(args.mcp_client)
+        skill_paths = project.install_skill(args.skill)
+        return {
+            "initialized": initialized,
+            "agent_provider": args.provider,
+            "mcp_config": project.rel(mcp_path) if mcp_path else None,
+            "skills": [project.rel(path) for path in skill_paths],
+        }, 0
     if command == "search":
         return {"query": args.query, "results": project.search(args.query)}, 0
     if command == "verify":
@@ -136,6 +148,26 @@ def parser() -> argparse.ArgumentParser:
     init = sub.add_parser("init")
     init.add_argument("--json", action="store_true", dest="as_json", default=argparse.SUPPRESS)
     init.add_argument("--root", default=argparse.SUPPRESS)
+    setup = sub.add_parser("setup", help="Initialize knowledge and optionally configure MCP")
+    setup.add_argument("--json", action="store_true", dest="as_json", default=argparse.SUPPRESS)
+    setup.add_argument("--root", default=argparse.SUPPRESS)
+    setup.add_argument(
+        "--provider",
+        choices=("auto", "opencode", "claude", "codex", "github-copilot"),
+        help="Local agent provider for semantic verification",
+    )
+    setup.add_argument(
+        "--mcp-client",
+        choices=("none", "claude", "cursor", "vscode"),
+        default="none",
+        help="Generate a client MCP config without overwriting an existing file",
+    )
+    setup.add_argument(
+        "--skill",
+        choices=("none", "copilot", "claude", "codex", "opencode", "all"),
+        default="none",
+        help="Install project-local agent instructions without overwriting existing files",
+    )
     search = sub.add_parser("search")
     search.add_argument("--json", action="store_true", dest="as_json", default=argparse.SUPPRESS)
     search.add_argument("--root", default=argparse.SUPPRESS)

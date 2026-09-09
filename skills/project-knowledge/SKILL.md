@@ -1,3 +1,8 @@
+---
+name: project-knowledge
+description: Preserve project intent and implementation knowledge across AI-assisted development sessions.
+---
+
 # Project Knowledge Skill
 
 Use the `knowledge` CLI to preserve project intent and implementation knowledge.
