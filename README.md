@@ -21,36 +21,42 @@ python -m pip install -e C:\path\to\Atlas
 ## Set up a project
 
 The easiest approach is to ask the coding agent already working on the project to
-perform setup. From the project root, send it this request:
+perform setup. From the project root, copy and send only the following prompt:
 
-> Set up Project Knowledge for this project. Run `knowledge setup` for this agent,
-> install the project-knowledge skill, configure the appropriate MCP client, and run
-> `knowledge verify`. First identify which agent you are, then use the exact command
-> from the table below. Do not guess flags or substitute another provider. Only add
-> `--enable-agent` after I explicitly approve local-agent execution. Do not overwrite
-> existing project files or configuration. Show me every file you create and any setup
-> step that needs my approval.
+```text
+Set up Project Knowledge for this project.
 
-Use exactly one of these commands:
+1. Identify which coding agent you are.
+2. Use exactly the matching setup command below.
+3. Do not guess flags or substitute another provider.
+4. Only add --enable-agent after I explicitly approve local-agent execution.
+5. Do not overwrite existing project files or configuration.
+6. Show me every file you create and any setup step that needs my approval.
+7. Run knowledge verify after setup.
 
-| Agent | Setup command |
-| --- | --- |
-| GitHub Copilot in VS Code | `knowledge setup --provider github-copilot --enable-agent --mcp-client vscode --skill copilot` |
-| Claude Code | `knowledge setup --provider claude --enable-agent --mcp-client claude --skill claude` |
-| Codex | `knowledge setup --provider codex --enable-agent --mcp-client none --skill codex` |
-| OpenCode | `knowledge setup --provider opencode --enable-agent --mcp-client none --skill opencode` |
+Use exactly one command:
 
-If you do not want semantic verification to invoke a local agent yet, omit
-`--enable-agent`. Deterministic initialization and verification still work.
+GitHub Copilot in VS Code:
+knowledge setup --provider github-copilot --enable-agent --mcp-client vscode --skill copilot
 
-If the active agent is not listed, run:
+Claude Code:
+knowledge setup --provider claude --enable-agent --mcp-client claude --skill claude
 
-```powershell
+Codex:
+knowledge setup --provider codex --enable-agent --mcp-client none --skill codex
+
+OpenCode:
+knowledge setup --provider opencode --enable-agent --mcp-client none --skill opencode
+
+If you do not want semantic verification to invoke a local agent yet, remove
+--enable-agent. Deterministic initialization and verification still work.
+
+If the active agent is not listed, use:
 knowledge setup --provider auto --mcp-client none --skill none
-```
 
 Do not enable semantic agent execution for an unlisted provider unless its command
 and JSON output contract have been explicitly configured and approved.
+```
 
 ## What setup does
 
