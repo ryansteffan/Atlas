@@ -9,7 +9,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from knowledge_system.cli import main
-from knowledge_system.core import KnowledgeProject, LocalAgentAdapter
+from knowledge_system.core import DEFAULT_AGENT_COMMANDS, KnowledgeProject, LocalAgentAdapter
 from knowledge_system.mcp import handle
 
 
@@ -79,6 +79,10 @@ class KnowledgeProjectTests(unittest.TestCase):
         self.project.set_config("agent.provider", "codex")
         with patch.object(KnowledgeProject, "user_config_path", return_value=self.root / "user.json"):
             self.assertIsNone(LocalAgentAdapter(self.project).command())
+
+    def test_github_copilot_provider_uses_standalone_cli(self) -> None:
+        self.assertEqual(DEFAULT_AGENT_COMMANDS["github-copilot"], ["copilot"])
+        self.assertEqual(DEFAULT_AGENT_COMMANDS["copilot"], ["copilot"])
 
     def test_spec_paths_cannot_escape_knowledge_directory(self) -> None:
         from knowledge_system.cli import main

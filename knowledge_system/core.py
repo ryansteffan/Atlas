@@ -221,8 +221,8 @@ DEFAULT_AGENT_COMMANDS = {
     "claude": ["claude", "-p"],
     "claude-code": ["claude", "-p"],
     "codex": ["codex", "exec"],
-    "github-copilot": ["gh", "copilot", "suggest"],
-    "copilot": ["gh", "copilot", "suggest"],
+    "github-copilot": ["copilot"],
+    "copilot": ["copilot"],
 }
 
 
