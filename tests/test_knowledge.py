@@ -63,6 +63,18 @@ class KnowledgeProjectTests(unittest.TestCase):
         self.assertEqual(verification["status"], "warning")
         self.assertTrue(any(issue["category"] == "semantic" for issue in verification["issues"]))
 
+    def test_deterministic_verification_skips_agent_checks(self) -> None:
+        self.project.init()
+        progress: list[str] = []
+        with patch.object(LocalAgentAdapter, "verify", side_effect=AssertionError("agent called")):
+            verification = self.project.project_verify(semantic=False, progress=progress.append)
+        self.assertEqual(verification["status"], "warning")
+        self.assertFalse(any(issue["category"] == "semantic" for issue in verification["issues"]))
+        self.assertEqual(
+            progress,
+            ["checking knowledge structure", "knowledge structure checked"],
+        )
+
     def test_local_agent_adapter_accepts_configured_command(self) -> None:
         self.project.set_config(
             "agent.command",
@@ -103,6 +115,15 @@ class InterfaceTests(unittest.TestCase):
             root = Path(directory)
             self.assertEqual(main(["init", "--root", str(root), "--json"]), 0)
             self.assertTrue((root / "knowledge" / "root.info.md").is_file())
+
+    def test_cli_supports_deterministic_only_verification(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            self.assertEqual(main(["init", "--root", str(root)]), 0)
+            self.assertEqual(
+                main(["verify", "--root", str(root), "--deterministic-only", "--json"]),
+                0,
+            )
 
     def test_setup_initializes_and_generates_mcp_config(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

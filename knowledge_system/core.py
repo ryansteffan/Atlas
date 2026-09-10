@@ -9,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Callable, Iterable
 
 
 BUILTIN_IGNORES = {
@@ -527,7 +527,14 @@ class KnowledgeProject:
         status = "fail" if any(issue.severity == "error" for issue in issues) else "pass"
         return result("structure", ".", status, issues)
 
-    def knowledge_verify(self, path: Path, kind: str) -> dict[str, Any]:
+    def knowledge_verify(
+        self,
+        path: Path,
+        kind: str,
+        *,
+        semantic: bool = True,
+        progress: Callable[[str], None] | None = None,
+    ) -> dict[str, Any]:
         result_type = "specification" if kind == "spec" else "documentation"
         if not path.is_file():
             return result(
@@ -559,31 +566,47 @@ class KnowledgeProject:
                     "The resource still contains template placeholders and should be completed.",
                 )
             )
-        agent_result = LocalAgentAdapter(self).verify(path, kind, text)
-        if agent_result is None:
-            issues.append(
-                Issue(
-                    "warning",
-                    "semantic",
-                    "No local agent provider is configured or installed; deterministic checks only.",
+        if semantic:
+            if progress is not None:
+                progress(f"semantic verification started: {self.rel(path)}")
+            agent_result = LocalAgentAdapter(self).verify(path, kind, text)
+            if progress is not None:
+                progress(f"semantic verification completed: {self.rel(path)}")
+            if agent_result is None:
+                issues.append(
+                    Issue(
+                        "warning",
+                        "semantic",
+                        "No local agent provider is configured or installed; deterministic checks only.",
+                    )
                 )
-            )
-        else:
-            issues.extend(
-                Issue(
-                    issue.get("severity", "warning"),
-                    issue.get("category", "agent"),
-                    issue.get("description", "Local agent reported an issue."),
-                    issue.get("evidence"),
+            else:
+                issues.extend(
+                    Issue(
+                        issue.get("severity", "warning"),
+                        issue.get("category", "agent"),
+                        issue.get("description", "Local agent reported an issue."),
+                        issue.get("evidence"),
+                    )
+                    for issue in agent_result.get("issues", [])
+                    if isinstance(issue, dict)
                 )
-                for issue in agent_result.get("issues", [])
-                if isinstance(issue, dict)
-            )
         status = "fail" if any(issue.severity == "error" for issue in issues) else "warning"
         return result(result_type, self.rel(path), status, issues)
 
-    def project_verify(self) -> dict[str, Any]:
+    def project_verify(
+        self,
+        *,
+        semantic: bool = True,
+        path: Path | None = None,
+        kind: str | None = None,
+        progress: Callable[[str], None] | None = None,
+    ) -> dict[str, Any]:
+        if progress is not None:
+            progress("checking knowledge structure")
         structural = self.structural_verify()
+        if progress is not None:
+            progress("knowledge structure checked")
         issues = [
             Issue(
                 issue["severity"],
@@ -593,9 +616,14 @@ class KnowledgeProject:
             )
             for issue in structural["issues"]
         ]
-        if self.specs.exists():
-            for path in sorted(self.specs.rglob("*.spec.md")):
-                verification = self.knowledge_verify(path, "spec")
+        if self.specs.exists() and (path is None or kind == "spec"):
+            spec_paths = [path] if path is not None else sorted(self.specs.rglob("*.spec.md"))
+            for spec_path in spec_paths:
+                if not spec_path.is_file():
+                    continue
+                verification = self.knowledge_verify(
+                    spec_path, "spec", semantic=semantic, progress=progress
+                )
                 issues.extend(
                     Issue(
                         issue["severity"],
@@ -606,10 +634,19 @@ class KnowledgeProject:
                     for issue in verification["issues"]
                 )
         directories, files = self.project_resources()
-        for resource in [*directories, *files]:
-            document = self.documentation_path(resource)
-            if document.is_file():
-                verification = self.knowledge_verify(document, "doc")
+        if path is None or kind == "doc":
+            documents = (
+                [path]
+                if path is not None
+                else [self.documentation_path(resource) for resource in [*directories, *files]]
+            )
+            for document in documents:
+                if document.is_file():
+                    verification = self.knowledge_verify(
+                        document, "doc", semantic=semantic, progress=progress
+                    )
+                else:
+                    continue
                 issues.extend(
                     Issue(
                         issue["severity"],
