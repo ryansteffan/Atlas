@@ -82,7 +82,20 @@ def operation(args: argparse.Namespace) -> tuple[Any, int]:
     if command == "search":
         return {"query": args.query, "results": project.search(args.query)}, 0
     if command == "verify":
-        value = project.project_verify()
+        def progress(message: str) -> None:
+            print(message, file=sys.stderr, flush=True)
+
+        target = None
+        kind = None
+        if args.path:
+            kind = args.kind
+            target = spec_path(project, args.path) if kind == "spec" else doc_path(project, args.path)
+        value = project.project_verify(
+            semantic=not args.deterministic_only,
+            path=target,
+            kind=kind,
+            progress=progress,
+        )
         return value, EXIT_VERIFICATION_FAILED if value["status"] == "fail" else 0
     if command == "doctor":
         structural = project.project_verify()
@@ -201,6 +214,21 @@ def parser() -> argparse.ArgumentParser:
     verify = sub.add_parser("verify")
     verify.add_argument("--json", action="store_true", dest="as_json", default=argparse.SUPPRESS)
     verify.add_argument("--root", default=argparse.SUPPRESS)
+    verify.add_argument(
+        "--deterministic-only",
+        action="store_true",
+        help="Skip local-agent checks and run only fast structural/content checks",
+    )
+    verify.add_argument(
+        "--path",
+        help="Verify one specification or resource instead of the whole project",
+    )
+    verify.add_argument(
+        "--kind",
+        choices=("spec", "doc"),
+        default="doc",
+        help="Kind of --path (default: doc)",
+    )
     doctor = sub.add_parser("doctor")
     doctor.add_argument("--json", action="store_true", dest="as_json", default=argparse.SUPPRESS)
     doctor.add_argument("--root", default=argparse.SUPPRESS)

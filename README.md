@@ -112,6 +112,29 @@ was explicitly enabled and is installed, it also performs semantic verification.
 Otherwise semantic verification is reported as unavailable rather than silently
 claiming it ran.
 
+Verification writes phase and per-resource progress to stderr, including when a
+semantic agent check starts and completes. JSON results remain on stdout, so
+interactive runs show activity without breaking scripts that consume `--json`.
+
+For a fast local precheck that does not invoke an agent, use:
+
+```powershell
+knowledge verify --deterministic-only
+```
+
+The default project verification asks the configured agent to inspect every
+specification and canonical document. To shorten an iterative workflow, verify
+only the resource you changed:
+
+```powershell
+knowledge verify --path knowledge/spec/security.spec.md --kind spec
+knowledge verify --path src\syslog.py --kind doc
+```
+
+Use deterministic-only verification for quick feedback, then run the targeted
+semantic check before completing a change. This keeps the full semantic pass
+available without requiring every edit to rescan the entire project.
+
 ## Daily use
 
 Search before making changes:
